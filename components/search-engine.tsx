@@ -114,12 +114,14 @@ export default function SearchEngine() {
 
   return (
     <div ref={containerRef} className="max-w-4xl mx-auto p-6">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-4xl md:text-5xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-neutral-100 to-neutral-300">
           OCTSearch
         </h1>
         <ModeToggle />
       </div>
+
+      <p className="text-sm text-muted-foreground mb-4 opacity-80">Find the most relevant organic chemistry tutor videos</p>
 
       <div className="relative mb-8">
         <div className="flex">
