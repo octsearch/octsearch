@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "ORGSearch",
-  description: "Find the most relevant organic chemistry tutorial videos",
+  description: "Find the most relevant organic chemistry tutor videos",
 }
 
 export default function RootLayout({
