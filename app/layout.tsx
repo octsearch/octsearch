@@ -7,7 +7,7 @@ import { ThemeProvider } from "next-themes"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "ORGSearch",
+  title: "OCTSearch",
   description: "Find the most relevant organic chemistry tutor videos",
 }
 

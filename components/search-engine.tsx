@@ -116,7 +116,7 @@ export default function SearchEngine() {
     <div ref={containerRef} className="max-w-4xl mx-auto p-6">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-4xl md:text-5xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-neutral-100 to-neutral-300">
-          ORGSearch
+          OCTSearch
         </h1>
         <ModeToggle />
       </div>
