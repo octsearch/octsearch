@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
-import { Search, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -22,6 +22,12 @@ const SUGGESTIONS = [
   "What is the Pythagorean theorem used for?",
   "How does probability theory apply to real-world problems?"
 ]
+
+interface SearchResult {
+  title: string
+  url: string
+  similarity_score: number
+}
 
 const fetchSearchResults = async (query: string, retries: number = 10) => {
   if (!query.trim()) return { query: "", results: [] }
@@ -53,7 +59,7 @@ export default function SearchEngine() {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
-  const [results, setResults] = useState<any[]>([])
+  const [results, setResults] = useState<SearchResult[]>([])
   const [hasSearched, setHasSearched] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -69,23 +75,24 @@ export default function SearchEngine() {
     }
   }, [])
 
-  const handleSearch = async () => {
-    if (!query.trim()) return
-
-    setIsLoading(true)
-    setError("")
-    setHasSearched(true)
-
+  const handleSearch = async (searchQuery?: string) => {
+    const finalQuery = searchQuery || query;
+    if (!finalQuery.trim()) return;
+  
+    setIsLoading(true);
+    setError("");
+    setHasSearched(true);
+  
     try {
-      const data = await fetchSearchResults(query)
-      setResults(data?.results)
+      const data = await fetchSearchResults(finalQuery);
+      setResults(data?.results);
     } catch (err) {
-      setError("Failed to fetch results. Please try again.")
-      setResults([])
+      setError(`${err}`);
+      setResults([]);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value)
@@ -98,7 +105,7 @@ export default function SearchEngine() {
     if (inputRef.current) {
       inputRef.current.focus()
     }
-    handleSearch()
+    handleSearch(suggestion);
   }
 
   const filteredSuggestions = SUGGESTIONS.filter((suggestion) =>
@@ -130,7 +137,7 @@ export default function SearchEngine() {
           </div>
           <Button
             className="ml-2 px-6 py-6 bg-gradient-to-r from-neutral-600 to-neutral-700 hover:from-blue-600 hover:to-purple-600 text-white rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105"
-            onClick={handleSearch}
+            onClick={() => handleSearch()}
             disabled={isLoading || !query.trim()}
           >
             {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Search"}
@@ -150,7 +157,7 @@ export default function SearchEngine() {
 
       {hasSearched && query.trim() && !isLoading && results.length === 0 && !error && (
         <Card className="p-6 text-center bg-white/10 backdrop-blur-md border border-white/20 rounded-lg">
-          <p className="text-lg">No results found for "{query}"</p>
+          <p className="text-lg">No results found for {query}</p>
           <p className="text-muted-foreground mt-2">Try a different search term or check your spelling</p>
         </Card>
       )}

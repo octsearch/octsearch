@@ -8,14 +8,13 @@ const groq = new Groq({
     apiKey: process.env["GROQ_API_KEY"],
 });
 
-async function retry<T>(fn: () => Promise<T>, retries: number = 10, delay: number = 1000): Promise<T> {
-    try {
-        return await fn();
-    } catch (error) {
-        if (retries === 1) throw error;
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return retry(fn, retries - 1, delay * 2);
-    }
+interface PineconeHit {
+    _id?: string;
+    _score?: number;
+    fields: {
+        title?: string;
+        url?: string;
+    };
 }
 
 export async function POST(req: Request) {
@@ -26,15 +25,16 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Missing query text' }, { status: 400 });
         }
 
+        console.log(text)
+
         const responseChunks: string[] = [];
 
-        const chatCompletion = await retry(async () => {
-            return await groq.chat.completions.create({
+        const chatCompletion = await groq.chat.completions.create({
                 messages: [
                     {
                         role: "system",
-                        content: "You are an AI assistant that specializes in identifying the key STEM concepts required to solve a given problem. When provided with a STEM-related question, your task is to analyze the problem and return a structured JSON response containing a list of fundamental concepts necessary for solving it.  \n\nFollow these guidelines:  \n\n- Extract and list **all** relevant concepts that contribute to solving the problem.  \n- Concepts should be **fundamental principles**, **laws**, **theorems**, **formulas**, or **methods**.  \n- Format your response as a JSON object with a **single key** `\"concepts\"`, mapping to a **comma-separated string** of concepts.  \n- Keep the list **concise yet comprehensive**, avoiding redundancy.  \n\n**Example Input:**  \n\"A car accelerates uniformly from rest at a rate of 3 m/s² for 5 seconds. What is its final velocity?\"  \n\n**Example Output:**  \n```json\n{ \n  \"concepts\": \"Kinematic Equations, Acceleration, Initial Velocity, Final Velocity, Time, Uniform Acceleration Formula\"\n}\n```"
-                    },
+                        content: "You are an AI assistant that extracts **concise** STEM concepts directly from the question and formats them into a structured JSON response. **Always respond in JSON format, even for non-STEM questions.**  \n\n### Guidelines:  \n- **Rephrase the key concept(s) from the question** in a natural, descriptive way.  \n- **Use the terminology from the question** when possible, slightly adjusted for clarity.  \n- Format your response as a JSON object with a **single key** `\"concepts\"`, mapping to a **comma-separated string** of concepts.  \n- Ensure the output remains **short and focused**, avoiding redundant or generic terms.  \n\n### Example Inputs & Outputs:  \n\n#### **STEM Example 1**  \n**Input:** *\"What is the derivative of a function?\"*  \n**Output:**  \n```json\n{ \n  \"concepts\": \"derivatives of functions\"\n}\n```\n\n#### **STEM Example 2**  \n**Input:** *\"Use the Chain Rule to find the indicated partial derivatives.\"*  \n**Output:**  \n```json\n{ \n  \"concepts\": \"Chain Rule with partial derivatives\"\n}\n```\n\n#### **Non-STEM Example**  \n**Input:** *\"What is the capital of France?\"*  \n**Output:**  \n```json\n{ \n  \"concepts\": \"capital of France\"\n}\n```"
+        },
                     {
                         role: "user",
                         content: text,
@@ -47,7 +47,6 @@ export async function POST(req: Request) {
                 stream: true,
                 stop: null,
             });
-        });
 
         for await (const chunk of chatCompletion) {
             const content = chunk.choices[0]?.delta?.content || "";
@@ -57,7 +56,9 @@ export async function POST(req: Request) {
         const fullResponse = responseChunks.join("").trim();
 
         const jsonMatch = fullResponse.match(/```json\s*([\s\S]*?)\s*```/);
-        let jsonString = jsonMatch ? jsonMatch[1].trim() : fullResponse;
+        const jsonString = jsonMatch ? jsonMatch[1].trim() : fullResponse;
+
+        console.log(jsonString)
 
         let extractedConcepts = "";
         try {
@@ -66,6 +67,8 @@ export async function POST(req: Request) {
         } catch (error) {
             return NextResponse.json({ error: 'Invalid JSON response', details: error }, { status: 500 });
         }
+
+        console.log(extractedConcepts)
 
         if (!extractedConcepts) {
             return NextResponse.json({ error: 'No concepts extracted' }, { status: 500 });
@@ -76,18 +79,16 @@ export async function POST(req: Request) {
             process.env.PINECONE_HOST!
         ).namespace("youtube_videos_v2");
 
-        const response = await retry(async () => {
-            return await namespace.searchRecords({
-                query: {
-                    topK: 10,
-                    inputs: { text: `${text}. ${extractedConcepts}.` },
-                },
-                fields: ['title', 'url'],
-            });
+        const response = await namespace.searchRecords({
+            query: {
+                topK: 10,
+                inputs: { text: `${text}. ${extractedConcepts}.` },
+            },
+            fields: ['title', 'url'],
         });
 
-        const formattedData = response.result.hits.map((hit: any) => ({
-            title: hit.fields.title.replace(/\b(?:Introduction|Guide|Basics|Concepts)\b/i, text),
+        const formattedData = response.result.hits.map((hit: PineconeHit) => ({
+            title: hit.fields.title,
             url: hit.fields.url,
             similarity_score: hit._score,
         }));
